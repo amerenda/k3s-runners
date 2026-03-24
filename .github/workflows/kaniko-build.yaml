@@ -16,7 +16,7 @@ on:
 jobs:
   build-and-push:
     name: Build and Push Docker Image
-    runs-on: arc-runner-set
+    runs-on: [self-hosted, mac-mini]
     steps:
       - uses: actions/checkout@v6
 
