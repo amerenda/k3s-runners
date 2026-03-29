@@ -13,25 +13,53 @@ on:
       - '.github/workflows/home-assistant-build.yaml'
   workflow_dispatch:
 
+env:
+  IMAGE: amerenda/k3s-runners:home-assistant
+
 jobs:
-  build-and-push:
-    name: Build and Push Docker Image
-    runs-on: [self-hosted, mac-mini]
+  build-amd64:
+    name: Build amd64
+    runs-on: arc-runner-set
     steps:
       - uses: actions/checkout@v6
-
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+      - name: Build and push
+        if: github.event_name != 'pull_request'
+        run: |
+          docker build -t "${IMAGE}-amd64" ./home-assistant
+          docker push "${IMAGE}-amd64"
+      - name: Build only (PR)
+        if: github.event_name == 'pull_request'
+        run: docker build ./home-assistant
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./home-assistant
-          file: ./home-assistant/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          platforms: linux/amd64,linux/arm64
-          tags: amerenda/k3s-runners:home-assistant
+  build-arm64:
+    name: Build arm64
+    runs-on: [self-hosted, mac-mini]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+      - name: Build and push
+        if: github.event_name != 'pull_request'
+        run: |
+          docker build -t "${IMAGE}-arm64" ./home-assistant
+          docker push "${IMAGE}-arm64"
+      - name: Build only (PR)
+        if: github.event_name == 'pull_request'
+        run: docker build ./home-assistant
+
+  manifest:
+    needs: [build-amd64, build-arm64]
+    if: github.event_name != 'pull_request'
+    runs-on: arc-runner-set
+    steps:
+      - name: Log in to Docker Hub
+        run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+      - name: Create multi-arch manifest
+        run: |
+          docker buildx imagetools create -t "${IMAGE}" \
+            "${IMAGE}-amd64" \
+            "${IMAGE}-arm64"
