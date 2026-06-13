@@ -19,7 +19,7 @@ env:
 jobs:
   build-amd64:
     name: Build amd64
-    runs-on: arc-runner-set
+    runs-on: arc-runner-k3s-runners
     steps:
       - uses: actions/checkout@v6
       - name: Log in to Docker Hub
@@ -54,7 +54,7 @@ jobs:
   manifest:
     needs: [build-amd64, build-arm64]
     if: github.event_name != 'pull_request'
-    runs-on: arc-runner-set
+    runs-on: arc-runner-k3s-runners
     steps:
       - name: Log in to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
